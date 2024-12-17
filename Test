@@ -1,0 +1,67 @@
+import requests
+import msal
+
+# Replace these values with your own Azure AD app registration details
+TENANT_ID = "your-tenant-id"
+CLIENT_ID = "your-client-id"
+CLIENT_SECRET = "your-client-secret"
+
+# Microsoft Graph API endpoint
+GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
+
+# Function to get an access token
+def get_access_token():
+    authority = f"https://login.microsoftonline.com/{TENANT_ID}"
+    app = msal.ConfidentialClientApplication(
+        CLIENT_ID,
+        authority=authority,
+        client_credential=CLIENT_SECRET
+    )
+    result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+    if "access_token" in result:
+        return result["access_token"]
+    else:
+        raise Exception("Could not obtain an access token. Check your credentials and permissions.")
+
+# Function to get service principals
+def get_service_principals(access_token):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(f"{GRAPH_API_ENDPOINT}/servicePrincipals", headers=headers)
+    response.raise_for_status()
+    return response.json().get("value", [])
+
+# Function to get groups for a service principal
+def get_service_principal_groups(access_token, service_principal_id):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(
+        f"{GRAPH_API_ENDPOINT}/servicePrincipals/{service_principal_id}/transitiveMemberOf",
+        headers=headers
+    )
+    response.raise_for_status()
+    return response.json().get("value", [])
+
+# Main code
+def main():
+    # Get access token
+    token = get_access_token()
+
+    # Get all service principals
+    service_principals = get_service_principals(token)
+
+    # Loop through each service principal and get their groups
+    for sp in service_principals:
+        sp_id = sp.get("id")
+        sp_display_name = sp.get("displayName", "Unnamed Service Principal")
+        print(f"Service Principal: {sp_display_name} (ID: {sp_id})")
+
+        # Get groups the service principal is a member of
+        groups = get_service_principal_groups(token, sp_id)
+        if groups:
+            print("  Groups:")
+            for group in groups:
+                print(f"    - {group.get('displayName', 'Unnamed Group')} (ID: {group.get('id')})")
+        else:
+            print("  No group memberships found.")
+
+if __name__ == "__main__":
+    main()
