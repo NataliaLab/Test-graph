@@ -1,0 +1,32 @@
+from ldap3 import Server, Connection, ALL, SUBTREE
+
+# Define LDAP server and connection details
+server_address = 'ldap://your-ad-server.com'
+username = 'your-username@your-domain.com'
+password = 'your-password'
+
+# Connect to the LDAP server
+server = Server(server_address, get_info=ALL)
+conn = Connection(server, user=username, password=password, auto_bind=True)
+
+# Define the base DN (Distinguished Name) and search filter
+base_dn = 'DC=your-domain,DC=com'
+search_filter = '(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
+
+# Attributes to fetch (adjust as needed)
+attributes = ['cn', 'sAMAccountName', 'mail', 'userAccountControl']
+
+# Perform the search
+conn.search(
+    search_base=base_dn,
+    search_filter=search_filter,
+    search_scope=SUBTREE,
+    attributes=attributes
+)
+
+# Process and print results
+for entry in conn.entries:
+    print(entry)
+
+# Close the connection
+conn.unbind()
